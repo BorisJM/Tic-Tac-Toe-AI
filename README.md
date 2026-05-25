@@ -1,23 +1,26 @@
-# Author - Boris Matenco
-# Tic Tac Toe AI (Minimax + Alpha-Beta Pruning)
+# Authors - Boris Matenco, Oskar Smaga
+# Tic Tac Toe AI — Reinforcement Learning
 
-A simple Tic Tac Toe game with AI implemented using the Minimax algorithm with Alpha-Beta pruning.
+Projekt wykorzystuje Q-Learning oraz Reinforcement Learning do nauki gry Tic Tac Toe 4x4 poprzez self-play training.
 
-## Features
-- Unbeatable AI
-- Alpha-Beta pruning optimization
-- GUI built with Tkinter
-- Clean code structure (separated logic, AI, UI)
+## Cechy
+- Q-Learning
+- Reinforcement Learning
+- Self-play AI training
+- Persistent AI memory (Q-Table)
+- AI vs AI simulation
+- Tkinter GUI
+- 4x4 board
 
-## How it works?
-The AI uses the Minimax algorithm to simulate all possible game outcomes.
+## Jak działa?
 
-Alpha-Beta pruning reduces the number of nodes evaluated, making the algorithm faster without affecting the result.
+Dwa modele AI grają przeciwko sobie tysiące partii.
 
-## Tech stack
-- Python
-- Tkinter
+Po każdej grze aktualizowane są wartości Q dla wykonanych ruchów.
 
-## How to run
-```bash
-python main.py
+AI uczy się:
+- blokowania przeciwnika,
+- budowania linii,
+- optymalnej strategii.
+
+Po treningu większość gier kończy się remisem, co oznacza osiągnięcie optymalnej gry.

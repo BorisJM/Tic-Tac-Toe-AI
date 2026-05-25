@@ -1,51 +1,73 @@
-# Inicjalizacja planszy
-board = [" "] * 9
+BOARD_SIZE = 4
 
-# 7. Funckcja oceny stanu planszy.
-def evaluateBoard():
-    # Wszystkie kombinacje wygranej:
-    winnerCombinations = [
-        [0, 1, 2],  # 1.
-        [3, 4, 5],  # 2.
-        [6, 7, 8],  # 3.
-        [0, 3, 6],  # 4.
-        [1, 4, 7],  # 5.
-        [2, 5, 8],  # 6.
-        [0, 4, 8],  # 7.
-        [2, 4, 6]   # 8.
-    ]
+board = [" "] * (BOARD_SIZE * BOARD_SIZE)
 
-    # Sprawdzamy wszystkie kombinacje wygranej
-    for winnerComb in winnerCombinations:
-        if all(element != " " for element in [
-            board[winnerComb[0]],
-            board[winnerComb[1]],
-            board[winnerComb[2]]
-        ]):
-            if board[winnerComb[0]] == board[winnerComb[1]] == board[winnerComb[2]]:
-                if board[winnerComb[0]] == 'O':
-                    return 1
-                if board[winnerComb[0]] == 'X':
-                    return -1
 
-    # Remis
-    if all(element != " " for element in board):
-        return 0
+def get_winner(current_board):
 
-    # Gra trwa
+    winning_combinations = []
+
+    # ROWS
+    for row in range(BOARD_SIZE):
+
+        winning_combinations.append([
+            row * BOARD_SIZE + col
+            for col in range(BOARD_SIZE)
+        ])
+
+    # COLUMNS
+    for col in range(BOARD_SIZE):
+
+        winning_combinations.append([
+            row * BOARD_SIZE + col
+            for row in range(BOARD_SIZE)
+        ])
+
+    # DIAGONAL LEFT
+    winning_combinations.append([
+        i * BOARD_SIZE + i
+        for i in range(BOARD_SIZE)
+    ])
+
+    # DIAGONAL RIGHT
+    winning_combinations.append([
+        i * BOARD_SIZE + (
+            BOARD_SIZE - 1 - i
+        )
+        for i in range(BOARD_SIZE)
+    ])
+
+    for combination in winning_combinations:
+
+        values = [
+            current_board[i]
+            for i in combination
+        ]
+
+        if values.count("X") == BOARD_SIZE:
+            return "X"
+
+        if values.count("O") == BOARD_SIZE:
+            return "O"
+
+    if " " not in current_board:
+        return "DRAW"
+
     return None
 
 
-# 8. Funkcja zwracająca listę wolnych indeksów w tablicy.
-def get_available_moves():
-    free_indexes = []
-    for index, element in enumerate(board):
-        if element == " ":
-            free_indexes.append(index)
-    return free_indexes
+def get_available_moves(current_board):
+
+    return [
+        i for i, value
+        in enumerate(current_board)
+        if value == " "
+    ]
 
 
-# Reset planszy
 def reset_board():
+
     global board
-    board = [" "] * 9
+
+    for i in range(len(board)):
+        board[i] = " "

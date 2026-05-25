@@ -1,89 +1,273 @@
 import tkinter as tk
-from game import board, evaluateBoard, reset_board
-from ai import minimax
+import threading
 
-# GUI
+from game import (
+    board,
+    BOARD_SIZE,
+    reset_board,
+    get_winner
+)
+
+from ai import (
+    train_ai,
+    choose_move
+)
+
+# TRAINING
+
+# WINDOW
+
 root = tk.Tk()
-root.title("Tic Tac Toe AI")
-root.geometry("300x350")
-root.configure(bg="#1e1e1e")
+
+root.title(
+    "Q-Learning AI vs AI"
+)
+
+root.geometry("550x760")
+
+root.configure(
+    bg="#1e1e1e"
+)
 
 buttons = []
 
-# Klik użytkownika
-def on_click(index):
-    if board[index] != " ":
-        return
+current_player = "X"
 
-    board[index] = "X"
-    buttons[index].config(text="X")
+running = False
 
-    if check_end():
-        return
+training_running = False
 
-    root.after(300, ai_move)
+x_wins = 0
+o_wins = 0
+draws = 0
 
+# UPDATE GUI
 
-# Ruch AI
-def ai_move():
-    best_move = minimax(-float('inf'), float('inf'), True, True)
-    board[best_move] = "O"
-    buttons[best_move].config(text="O")
+def update_gui():
 
-    check_end()
+    for i in range(len(board)):
+
+        buttons[i].config(
+            text=board[i]
+        )
 
 
-# Sprawdzenie końca gry
-def check_end():
-    result = evaluateBoard()
+# END GAME
 
-    if result is None:
-        return False
+def end_game(winner):
 
-    if result == 1:
-        label.config(text="AI wygrało")
-    elif result == -1:
-        label.config(text="Ty wygrałeś")
+    global running
+    global x_wins
+    global o_wins
+    global draws
+
+    running = False
+
+    if winner == "X":
+
+        x_wins += 1
+
+    elif winner == "O":
+
+        o_wins += 1
+
     else:
-        label.config(text="Remis")
 
-    for btn in buttons:
-        btn.config(state="disabled")
+        draws += 1
 
-    return True
+    status_label.config(
+        text=(
+            f"X:{x_wins} "
+            f"O:{o_wins} "
+            f"Draws:{draws}"
+        )
+    )
+    root.after(
+        1500,
+        start_next_game
+    )
 
+# AI TURN
 
-# Reset gry
-def reset():
+def ai_turn():
+
+    global current_player
+    global running
+
+    if not running:
+        return
+
+    move = choose_move(board.copy())
+
+    if move is not None:
+
+        board[move] = current_player
+
+        update_gui()
+
+    winner = get_winner(board)
+
+    if winner is not None:
+
+        end_game(winner)
+
+        return
+
+    current_player = (
+        "O"
+        if current_player == "X"
+        else "X"
+    )
+
+    root.after(
+        300,
+        ai_turn
+    )
+
+# START GAME
+
+def start_game():
+
+    global current_player
+    global running
+    running = False
     reset_board()
 
-    for btn in buttons:
-        btn.config(text=" ", state="normal")
+    update_gui()
 
-    label.config(text="")
+    current_player = "X"
+
+    running = True
+
+    ai_turn()
+
+# AUTO PLAY
+
+auto_running = False
 
 
-# Tworzenie planszy
-for i in range(9):
-    btn = tk.Button(
-        root,
-        text=" ",
-        font=("Arial", 20),
-        width=5,
-        height=2,
-        bg="#2e2e2e",
-        fg="white",
-        command=lambda i=i: on_click(i)
+def auto_play():
+
+    global auto_running
+
+    auto_running = True
+
+    start_game()
+
+
+def start_next_game():
+
+    global auto_running
+
+    if auto_running:
+
+        start_game()
+
+def start_training():
+
+    global training_running
+
+    if training_running:
+        return
+
+    training_running = True
+
+    def training_task():
+
+        global training_running
+
+        train_ai(10000)
+
+        training_running = False
+
+    threading.Thread(
+        target=training_task,
+        daemon=True
+    ).start()
+
+# GUI
+
+frame = tk.Frame(
+    root,
+    bg="#1e1e1e"
+)
+
+frame.pack(
+    pady=20
+)
+
+for i in range(
+    BOARD_SIZE *
+    BOARD_SIZE
+):
+
+    button = tk.Button(
+        frame,
+        text="",
+        width=6,
+        height=3,
+        font=(
+            "Arial",
+            20,
+            "bold"
+        ),
+        bg="#2d2d2d",
+        fg="white"
     )
-    btn.grid(row=i // 3, column=i % 3)
-    buttons.append(btn)
 
-# Label wynik
-label = tk.Label(root, text="", bg="#1e1e1e", fg="white")
-label.grid(row=3, column=0, columnspan=3)
+    button.grid(
+        row=i // BOARD_SIZE,
+        column=i % BOARD_SIZE,
+        padx=5,
+        pady=5
+    )
 
-# Reset button
-reset_btn = tk.Button(root, text="Reset", command=reset)
-reset_btn.grid(row=4, column=0, columnspan=3)
+    buttons.append(button)
+
+
+status_label = tk.Label(
+    root,
+    text="AI vs AI",
+    font=("Arial", 16),
+    bg="#1e1e1e",
+    fg="white"
+)
+
+status_label.pack(
+    pady=20
+)
+
+
+start_button = tk.Button(
+    root,
+    text="Start Game",
+    command=start_game,
+    font=("Arial", 14)
+)
+
+start_button.pack(
+    pady=10
+)
+
+
+auto_button = tk.Button(
+    root,
+    text="Auto Play",
+    command=auto_play,
+    font=("Arial", 14)
+)
+
+auto_button.pack(
+    pady=10
+)
+
+train_button = tk.Button(
+    root,
+    text="Train AI",
+    command=start_training,
+    font=("Arial", 14)
+)
+
+train_button.pack(pady=10)
 
 root.mainloop()

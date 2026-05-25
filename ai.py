@@ -1,60 +1,332 @@
-from game import board, evaluateBoard, get_available_moves
+import random
+import json
+import os
 
-# 9. Funkcja minimax, żeby AI dokonało najlepszej decyzji.
-def minimax(alpha, beta, is_maximizing, isAiChoice=False):
-    score = evaluateBoard()
+from game import (
+    board,
+    BOARD_SIZE,
+    get_winner,
+    get_available_moves
+)
 
-    # Gra skończona
-    if score is not None:
-        return score
+Q_TABLE_FILE = "q_table.json"
 
-    # Ruch AI (maksymalizacja)
-    if is_maximizing:
-        best_score = -float('inf')
-        best_move = None
+Q_TABLE = {}
 
-        for element in get_available_moves():
-            board[element] = "O"
+LEARNING_RATE = 0.1
+DISCOUNT_FACTOR = 0.9
+EPSILON = 0.01
 
-            score = minimax(alpha, beta, False)
+# LOAD Q TABLE
 
-            # Cofnięcie ruchu
-            board[element] = " "
+def load_q_table():
 
-            if score > best_score:
-                best_score = score
-                best_move = element
+    global Q_TABLE
 
-            # Alpha update
-            alpha = max(alpha, score)
+    if os.path.exists(Q_TABLE_FILE):
 
-            # Alpha-Beta pruning
-            if alpha >= beta:
+        with open(
+            Q_TABLE_FILE,
+            "r"
+        ) as file:
+
+            Q_TABLE = json.load(file)
+
+
+def save_q_table():
+
+    with open(
+        Q_TABLE_FILE,
+        "w"
+    ) as file:
+
+        json.dump(Q_TABLE, file)
+
+
+load_q_table()
+
+# BOARD STATE
+
+def board_to_key(current_board):
+
+    return "".join(current_board)
+
+# GET Q VALUE
+
+def get_q_value(state, move):
+
+    if state not in Q_TABLE:
+        Q_TABLE[state] = {}
+
+    if str(move) not in Q_TABLE[state]:
+        Q_TABLE[state][str(move)] = 0
+
+    return Q_TABLE[state][str(move)]
+
+# UPDATE Q VALUE
+
+def update_q_value(
+    state,
+    move,
+    reward,
+    next_state
+):
+
+    old_value = get_q_value(
+        state,
+        move
+    )
+
+    next_moves = []
+
+    if next_state in Q_TABLE:
+
+        next_moves = (
+            Q_TABLE[next_state]
+            .values()
+        )
+
+    max_future_q = (
+        max(next_moves)
+        if next_moves
+        else 0
+    )
+
+    new_value = old_value + LEARNING_RATE * (
+        reward +
+        DISCOUNT_FACTOR * max_future_q -
+        old_value
+    )
+
+    Q_TABLE[state][str(move)] = (
+        new_value
+    )
+
+# CHOOSE MOVE
+
+def choose_move(current_board):
+    current_board = current_board.copy()
+    available_moves = (
+        get_available_moves(
+            current_board
+        )
+    )
+
+    # EXPLORATION
+    if random.random() < EPSILON:
+
+        return random.choice(
+            available_moves
+        )
+
+    # EXPLOITATION
+
+    state = board_to_key(
+        current_board
+    )
+
+    best_move = None
+    best_value = -float("inf")
+
+    for move in available_moves:
+
+        q_value = get_q_value(
+            state,
+            move
+        )
+
+        if q_value > best_value:
+
+            best_value = q_value
+            best_move = move
+
+    if best_move is None:
+
+        best_move = random.choice(
+            available_moves
+        )
+
+    return best_move
+
+# TRAIN AI
+
+def train_ai(games=50000):
+    global EPSILON
+    print("Training started...")
+
+    x_wins = 0
+    o_wins = 0
+    draws = 0
+
+    for game in range(games):
+
+        training_board = (
+            [" "] * (
+                BOARD_SIZE *
+                BOARD_SIZE
+            )
+        )
+
+        current_player = "X"
+
+        game_history = []
+
+        while True:
+
+            state = board_to_key(
+                training_board
+            )
+
+            move = choose_move(
+                training_board
+            )
+
+            training_board[move] = (
+                current_player
+            )
+
+            next_state = board_to_key(
+                training_board
+            )
+
+            game_history.append(
+                (
+                    state,
+                    move,
+                    current_player,
+                    next_state
+                )
+            )
+
+            winner = get_winner(
+                training_board
+            )
+
+            if winner is not None:
+
+                if winner == "X":
+                    x_wins += 1
+
+                elif winner == "O":
+                    o_wins += 1
+
+                else:
+                    draws += 1
+
+                # UPDATE Q VALUES
+
+                for (
+                    state,
+                    move,
+                    player,
+                    next_state
+                ) in game_history:
+
+                    if winner == "DRAW":
+
+                        reward = 0
+
+                    elif winner == player:
+
+                        reward = 1 + strategic_reward(
+                            training_board,
+                            player
+                        )
+
+                    else:
+
+                        reward = -1
+
+                    update_q_value(
+                        state,
+                        move,
+                        reward,
+                        next_state
+                    )
+
                 break
 
-        if isAiChoice:
-            return best_move
-        return best_score
+            current_player = (
+                "O"
+                if current_player == "X"
+                else "X"
+            )
 
-    # Ruch użytkownika (minimalizacja)
-    else:
-        best_score = float('inf')
+        # SAVE EVERY 1000 GAMES
+        if game % 1000 == 0:
+            EPSILON *= 0.995
+            print(
+                f"Game: {game}"
+            )
 
-        for element in get_available_moves():
-            board[element] = "X"
+            print(
+                f"X wins: {x_wins}"
+            )
 
-            score = minimax(alpha, beta, True)
+            print(
+                f"O wins: {o_wins}"
+            )
 
-            # Cofnięcie ruchu
-            board[element] = " "
+            print(
+                f"Draws: {draws}"
+            )
 
-            best_score = min(best_score, score)
+    save_q_table()
 
-            # Beta update
-            beta = min(beta, score)
+    print("Training finished.")
 
-            # Alpha-Beta pruning
-            if alpha >= beta:
-                break
+def strategic_reward(board, player):
 
-        return best_score
+    reward = 0
+
+    winning_combinations = []
+
+    # ROWS
+    for row in range(BOARD_SIZE):
+
+        winning_combinations.append([
+            row * BOARD_SIZE + col
+            for col in range(BOARD_SIZE)
+        ])
+
+    # COLUMNS
+    for col in range(BOARD_SIZE):
+
+        winning_combinations.append([
+            row * BOARD_SIZE + col
+            for row in range(BOARD_SIZE)
+        ])
+
+    # DIAGONALS
+    winning_combinations.append([
+        i * BOARD_SIZE + i
+        for i in range(BOARD_SIZE)
+    ])
+
+    winning_combinations.append([
+        i * BOARD_SIZE + (
+            BOARD_SIZE - 1 - i
+        )
+        for i in range(BOARD_SIZE)
+    ])
+
+    for combination in winning_combinations:
+
+        values = [
+            board[i]
+            for i in combination
+        ]
+
+        player_count = values.count(player)
+
+        empty_count = values.count(" ")
+
+        # 3 w linii
+        if player_count == 3 and empty_count == 1:
+            reward += 0.5
+
+        # 2 w linii
+        elif player_count == 2 and empty_count == 2:
+            reward += 0.2
+
+    return reward
